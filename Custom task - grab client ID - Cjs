@@ -1,0 +1,7 @@
+function() {
+  // Modify customDimensionIndex to match the index number you want to send the data to
+  var customDimensionIndex = 3;
+  return function(model) {
+    model.set('dimension' + customDimensionIndex, model.get('clientId'));
+  }
+}
