@@ -1,0 +1,78 @@
+function() {
+  // customTask Builder by Simo Ahava
+  //
+  // More information about customTask: https://www.simoahava.com/analytics/customtask-the-guide/
+  //
+  // Change the default values for the settings below.
+
+  // transactionDeduper: Configuration object for preventing duplicate transactions from being recorded.
+  // https://bit.ly/2AvSZ2Y
+  var transactionDeduper = {
+    keyName: '_transaction_ids',
+    cookieExpiresDays: 365
+  };
+
+  // DO NOT EDIT ANYTHING BELOW THIS LINE
+  var readFromStorage = function(key) {
+    if (!window.Storage) {
+      // From: https://stackoverflow.com/a/15724300/2367037
+      var value = '; ' + document.cookie;
+      var parts = value.split('; ' + key + '=');
+      if (parts.length === 2) return parts.pop().split(';').shift();
+    } else {
+      return window.localStorage.getItem(key);
+    }
+  };
+
+  var writeToStorage = function(key, value, expireDays) {
+    if (!window.Storage) {
+      var expiresDate = new Date();
+      expiresDate.setDate(expiresDate.getDate() + expireDays);
+      document.cookie = key + '=' + value + ';expires=' + expiresDate.toUTCString();
+    } else {
+      window.localStorage.setItem(key, value);
+    }
+  };
+
+  var globalSendHitTaskName   = '_ga_originalSendHitTask';
+
+  return function(customTaskModel) {
+
+    window[globalSendHitTaskName] = window[globalSendHitTaskName] || customTaskModel.get('sendHitTask');
+    var tempFieldObject, dimensionIndex, count, ga, tracker, decorateTimer, decorateIframe, iframe;
+
+    customTaskModel.set('sendHitTask', function(sendHitTaskModel) {
+
+      var originalSendHitTaskModel = sendHitTaskModel,
+          originalSendHitTask      = window[globalSendHitTaskName],
+          canSendHit               = true;
+
+      var hitPayload, hitPayloadParts, param, val, regexI, trackingId, snowplowVendor, snowplowVersion, snowplowPath, request, originalTrackingId, hitType, nonInteraction, d, transactionId, storedIds;
+
+      try {
+
+        // transactionDeduper
+        if (typeof transactionDeduper === 'object' && transactionDeduper.hasOwnProperty('keyName') && transactionDeduper.hasOwnProperty('cookieExpiresDays') && typeof sendHitTaskModel.get('&ti') !== 'undefined') {
+          transactionId = sendHitTaskModel.get('&ti');
+          storedIds = JSON.parse(readFromStorage(transactionDeduper.keyName) || '[]');
+          if (storedIds.indexOf(transactionId) > -1 && ['transaction', 'item'].indexOf(sendHitTaskModel.get('hitType')) === -1) {
+            canSendHit = false;
+          } else if (storedIds.indexOf(transactionId) === -1) {
+            storedIds.push(transactionId);
+            writeToStorage(transactionDeduper.keyName, JSON.stringify(storedIds), transactionDeduper.cookieExpiresDays);
+          }
+        }
+        // /transactionDeduper
+
+        if (canSendHit) {
+          originalSendHitTask(sendHitTaskModel);
+        }
+
+      } catch(e) {
+        originalSendHitTask(originalSendHitTaskModel);
+      }
+
+    });
+
+  };
+}
