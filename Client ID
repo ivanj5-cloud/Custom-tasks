@@ -1,0 +1,6 @@
+function() {
+  var clientIdIndex = 8; // Change this number to the actual Custom Dimension index number
+  return function(model) {
+    model.set('dimension' + clientIdIndex, model.get('clientId'));
+  };
+}
